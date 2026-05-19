@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum PlatformRole {
+  SUPER_ADMIN
+}
+
+enum RestaurantRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum RestaurantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum PrizeType {
+  FREE_PRODUCT
+  DISCOUNT_PERCENT
+  DISCOUNT_FIXED
+  NO_PRIZE
+  CUSTOM_REWARD
+}
+
+enum CouponStatus {
+  ISSUED
+  ACTIVE
+  EXPIRED
+  REDEEMED
+  CANCELLED
+  FRAUD_FLAGGED
+}
+
+enum ActorType {
+  SYSTEM
+  PLATFORM_USER
+  RESTAURANT_USER
+  ANONYMOUS
+}
+
+enum AnalyticsEventType {
+  QR_SCAN
+  SESSION_START
+  REVIEW_CLICK
+  REVIEW_RETURN
+  SPIN
+  WIN
+  LOSS
+  COUPON_ISSUED
+  COUPON_REDEEMED
+  COUPON_EXPIRED
+  STAFF_LOOKUP
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model PlatformUser {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String?
+  role         PlatformRole @default(SUPER_ADMIN)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("platform_users")
+}
+
+model Restaurant {
+  id             String           @id @default(cuid())
+  name           String
+  slug           String           @unique
+  logoUrl        String?
+  primaryColor   String           @default("#d6822e")
+  secondaryColor String           @default("#3a1b0e")
+  addressLine1   String?
+  postalCode     String?
+  city           String?
+  phone          String?
+  websiteUrl     String?
+  googleReviewUrl String?
+  timezone       String           @default("Europe/Paris")
+  status         RestaurantStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  users          RestaurantUser[]
+  campaigns      Campaign[]
+  coupons        Coupon[]
+  auditEvents    AuditEvent[]
+  analyticsEvents AnalyticsEvent[]
+  playSessions   PlaySession[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("restaurants")
+}
+
+model RestaurantUser {
+  id           String         @id @default(cuid())
+  restaurantId String
+  email        String
+  passwordHash String
+  name         String?
+  role         RestaurantRole @default(STAFF)
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  redeemedCoupons Coupon[]    @relation("RedeemedBy")
+
+  @@unique([restaurantId, email])
+  @@index([restaurantId])
+  @@index([email])
+  @@map("restaurant_users")
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  restaurantId String
+  name         String
+  slug         String
+  description  String?
+  status       CampaignStatus @default(DRAFT)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  termsText    String?
+  privacyText  String?
+  settingsJson Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  publicQrs    PublicQr[]
+  prizes       Prize[]
+  playSessions PlaySession[]
+  coupons      Coupon[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@unique([restaurantId, slug])
+  @@index([restaurantId])
+  @@index([slug])
+  @@index([status])
+  @@map("campaigns")
+}
+
+model PublicQr {
+  id         String   @id @default(cuid())
+  campaignId String
+  slug       String   @unique
+  label      String?
+  targetUrl  String
+  metadata   Json?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  playSessions PlaySession[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([campaignId])
+  @@index([slug])
+  @@map("public_qrs")
+}
+
+model Prize {
+  id              String    @id @default(cuid())
+  campaignId      String
+  type            PrizeType
+  label           String
+  description     String?
+  weight          Int       @default(1)
+  percentValue    Float?
+  fixedValue      Float?
+  stockGlobal     Int?
+  stockDaily      Int?
+  remainingStock  Int?
+  active          Boolean   @default(true)
+  cumulativeAllowed Boolean @default(false)
+  displayOrder    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  spins           Spin[]
+  coupons         Coupon[]
+
+  @@index([campaignId])
+  @@index([active])
+  @@map("prizes")
+}
+
+model PlaySession {
+  id                String    @id @default(cuid())
+  restaurantId      String
+  campaignId        String
+  publicQrId        String?
+  sessionToken      String    @unique
+  ipHash            String?
+  userAgentHash     String?
+  deviceHash        String?
+  source            String?
+  reviewClickedAt   DateTime?
+  returnedAt        DateTime?
+  startedAt         DateTime  @default(now())
+  eligible          Boolean   @default(true)
+  eligibilityReason String?
+  createdAt         DateTime  @default(now())
+
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  campaign          Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  publicQr          PublicQr?  @relation(fields: [publicQrId], references: [id])
+  spin              Spin?
+  analyticsEvents   AnalyticsEvent[]
+
+  @@index([restaurantId])
+  @@index([campaignId])
+  @@index([sessionToken])
+  @@index([ipHash])
+  @@index([deviceHash])
+  @@map("play_sessions")
+}
+
+model Spin {
+  id            String      @id @default(cuid())
+  playSessionId String      @unique
+  prizeId       String
+  randomValue   Float
+  signature     String
+  createdAt     DateTime    @default(now())
+
+  playSession   PlaySession @relation(fields: [playSessionId], references: [id], onDelete: Cascade)
+  prize         Prize       @relation(fields: [prizeId], references: [id])
+  coupon        Coupon?
+
+  @@index([playSessionId])
+  @@index([prizeId])
+  @@map("spins")
+}
+
+model Coupon {
+  id                         String       @id @default(cuid())
+  restaurantId               String
+  campaignId                 String
+  spinId                     String       @unique
+  prizeId                    String
+  humanCode                  String       @unique
+  status                     CouponStatus @default(ISSUED)
+  activationAt               DateTime
+  expiresAt                  DateTime
+  redeemedAt                 DateTime?
+  redeemedByRestaurantUserId String?
+  metadataJson               Json?
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+
+  restaurant                 Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  campaign                   Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  spin                       Spin           @relation(fields: [spinId], references: [id], onDelete: Cascade)
+  prize                      Prize          @relation(fields: [prizeId], references: [id])
+  redeemedBy                 RestaurantUser? @relation("RedeemedBy", fields: [redeemedByRestaurantUserId], references: [id])
+  redemptionToken            RedemptionToken?
+
+  @@index([restaurantId])
+  @@index([campaignId])
+  @@index([humanCode])
+  @@index([status])
+  @@index([activationAt])
+  @@index([expiresAt])
+  @@map("coupons")
+}
+
+model RedemptionToken {
+  id        String    @id @default(cuid())
+  couponId  String    @unique
+  tokenHash String    @unique
+  active    Boolean   @default(true)
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  coupon    Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([couponId])
+  @@map("redemption_tokens")
+}
+
+model AuditEvent {
+  id           String    @id @default(cuid())
+  restaurantId String?
+  actorType    ActorType
+  actorId      String?
+  entityType   String
+  entityId     String
+  eventType    String
+  payloadJson  Json?
+  createdAt    DateTime  @default(now())
+
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([entityType, entityId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+model AnalyticsEvent {
+  id            String              @id @default(cuid())
+  restaurantId  String
+  campaignId    String?
+  publicQrId    String?
+  playSessionId String?
+  type          AnalyticsEventType
+  payloadJson   Json?
+  createdAt     DateTime            @default(now())
+
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  campaign      Campaign?    @relation(fields: [campaignId], references: [id])
+  publicQr      PublicQr?    @relation(fields: [publicQrId], references: [id])
+  playSession   PlaySession? @relation(fields: [playSessionId], references: [id])
+
+  @@index([restaurantId])
+  @@index([campaignId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("analytics_events")
+}
