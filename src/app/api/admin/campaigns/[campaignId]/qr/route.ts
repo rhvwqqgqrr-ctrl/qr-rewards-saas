@@ -57,7 +57,7 @@ export async function POST(
         slug,
         label: data.label || `QR - ${campaign.name}`,
         targetUrl,
-        metadata: data.metadata || null,
+        metadata: data.metadata ?? undefined,
       },
     });
 

@@ -21,7 +21,7 @@ export async function logAuditEvent(params: AuditParams): Promise<void> {
         entityType: params.entityType,
         entityId: params.entityId,
         eventType: params.eventType,
-        payloadJson: params.payload || null,
+        payloadJson: params.payload ?? undefined,
       },
     });
   } catch (error) {

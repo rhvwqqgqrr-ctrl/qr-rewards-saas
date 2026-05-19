@@ -19,7 +19,7 @@ export async function trackEvent(params: AnalyticsParams): Promise<void> {
         publicQrId: params.publicQrId,
         playSessionId: params.playSessionId,
         type: params.type,
-        payloadJson: params.payload || null,
+        payloadJson: params.payload ?? undefined,
       },
     });
   } catch (error) {
