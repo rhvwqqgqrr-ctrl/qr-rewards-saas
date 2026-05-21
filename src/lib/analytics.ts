@@ -1,5 +1,5 @@
 import prisma from "./prisma";
-import { AnalyticsEventType } from "@prisma/client";
+import { AnalyticsEventType, Prisma } from "@prisma/client";
 
 interface AnalyticsParams {
   restaurantId: string;
@@ -19,7 +19,7 @@ export async function trackEvent(params: AnalyticsParams): Promise<void> {
         publicQrId: params.publicQrId,
         playSessionId: params.playSessionId,
         type: params.type,
-        payloadJson: params.payload ?? undefined,
+        payloadJson: (params.payload as Prisma.InputJsonValue) ?? undefined,
       },
     });
   } catch (error) {

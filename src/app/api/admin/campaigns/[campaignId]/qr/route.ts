@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { createPublicQrSchema } from "@/lib/validation";
 import { extractAuth, requireRestaurant } from "@/lib/auth-middleware";
 import { NotFoundError } from "@/lib/errors";
+import { Prisma } from "@prisma/client";
 import crypto from "crypto";
 
 export async function GET(
@@ -57,7 +58,7 @@ export async function POST(
         slug,
         label: data.label || `QR - ${campaign.name}`,
         targetUrl,
-        metadata: data.metadata ?? undefined,
+        metadata: (data.metadata as Prisma.InputJsonValue) ?? undefined,
       },
     });
 

@@ -1,5 +1,5 @@
 import prisma from "./prisma";
-import { ActorType } from "@prisma/client";
+import { ActorType, Prisma } from "@prisma/client";
 
 interface AuditParams {
   restaurantId?: string;
@@ -21,7 +21,7 @@ export async function logAuditEvent(params: AuditParams): Promise<void> {
         entityType: params.entityType,
         entityId: params.entityId,
         eventType: params.eventType,
-        payloadJson: params.payload ?? undefined,
+        payloadJson: (params.payload as Prisma.InputJsonValue) ?? undefined,
       },
     });
   } catch (error) {
