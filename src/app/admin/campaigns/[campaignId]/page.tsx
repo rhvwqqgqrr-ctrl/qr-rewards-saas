@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { adminFetch } from "@/lib/admin-fetch";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import QRCodeDisplay from "@/components/ui/QRCodeDisplay";
 
 interface Prize {
   id: string;
@@ -308,11 +309,11 @@ export default function CampaignDetailPage() {
         {campaign.publicQrs.length === 0 ? (
           <p className="text-gray-500 text-sm">Aucun QR public. Créez-en un pour démarrer.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {campaign.publicQrs.map((qr) => (
-              <div key={qr.id} className="card">
-                <p className="font-mono text-sm text-gray-700 break-all">{qr.targetUrl}</p>
-                <p className="text-xs text-gray-400 mt-1">Slug: {qr.slug}</p>
+              <div key={qr.id} className="card flex flex-col items-center py-6">
+                <QRCodeDisplay value={qr.targetUrl} size={250} label={qr.slug} />
+                <p className="font-mono text-xs text-gray-400 break-all mt-3 max-w-sm text-center">{qr.targetUrl}</p>
               </div>
             ))}
           </div>
