@@ -29,6 +29,14 @@ interface CampaignDetail {
   _count: { coupons: number; playSessions: number };
 }
 
+const PRIZE_TYPES = [
+  { value: "FREE_PRODUCT", label: "Produit offert" },
+  { value: "DISCOUNT_PERCENT", label: "Réduction %" },
+  { value: "DISCOUNT_FIXED", label: "Réduction fixe (€)" },
+  { value: "CUSTOM_REWARD", label: "Récompense personnalisée" },
+  { value: "NO_PRIZE", label: "Perdu (pas de lot)" },
+];
+
 export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -36,6 +44,16 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showPrizeForm, setShowPrizeForm] = useState(false);
+  const [prizeForm, setPrizeForm] = useState({
+    type: "FREE_PRODUCT",
+    label: "",
+    description: "",
+    weight: 10,
+    percentValue: null as number | null,
+    fixedValue: null as number | null,
+    stockGlobal: null as number | null,
+  });
 
   useEffect(() => {
     loadCampaign();
@@ -59,6 +77,37 @@ export default function CampaignDetailPage() {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus }),
       });
+      loadCampaign();
+    } catch {
+      /* error handled */
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function createPrize() {
+    setActionLoading(true);
+    try {
+      const payload: Record<string, unknown> = {
+        type: prizeForm.type,
+        label: prizeForm.label,
+        weight: prizeForm.weight,
+      };
+      if (prizeForm.description) payload.description = prizeForm.description;
+      if (prizeForm.type === "DISCOUNT_PERCENT" && prizeForm.percentValue !== null) {
+        payload.percentValue = prizeForm.percentValue;
+      }
+      if (prizeForm.type === "DISCOUNT_FIXED" && prizeForm.fixedValue !== null) {
+        payload.fixedValue = prizeForm.fixedValue;
+      }
+      if (prizeForm.stockGlobal !== null) payload.stockGlobal = prizeForm.stockGlobal;
+
+      await adminFetch(`/api/admin/campaigns/${campaignId}/prizes`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setPrizeForm({ type: "FREE_PRODUCT", label: "", description: "", weight: 10, percentValue: null, fixedValue: null, stockGlobal: null });
+      setShowPrizeForm(false);
       loadCampaign();
     } catch {
       /* error handled */
@@ -123,9 +172,111 @@ export default function CampaignDetailPage() {
 
       {/* Prizes */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-3">Lots</h3>
-        {campaign.prizes.length === 0 ? (
-          <p className="text-gray-500 text-sm">Aucun lot configuré</p>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">Lots</h3>
+          <button onClick={() => setShowPrizeForm(!showPrizeForm)} className="btn-secondary text-sm">
+            {showPrizeForm ? "Annuler" : "+ Ajouter un lot"}
+          </button>
+        </div>
+
+        {showPrizeForm && (
+          <div className="card mb-4 border-2 border-orange-200 bg-orange-50">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type de lot</label>
+                <select
+                  value={prizeForm.type}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, type: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  {PRIZE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du lot</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Dessert offert, -10% sur l'addition..."
+                  value={prizeForm.label}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, label: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description (optionnel)</label>
+                <input
+                  type="text"
+                  placeholder="Détails supplémentaires..."
+                  value={prizeForm.description}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, description: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              {prizeForm.type === "DISCOUNT_PERCENT" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pourcentage de réduction</label>
+                  <input
+                    type="number"
+                    min={0} max={100}
+                    placeholder="10"
+                    value={prizeForm.percentValue ?? ""}
+                    onChange={(e) => setPrizeForm({ ...prizeForm, percentValue: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+              {prizeForm.type === "DISCOUNT_FIXED" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant de la réduction (€)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="5"
+                    value={prizeForm.fixedValue ?? ""}
+                    onChange={(e) => setPrizeForm({ ...prizeForm, fixedValue: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Poids (probabilité relative)
+                </label>
+                <input
+                  type="number"
+                  min={0} max={1000}
+                  value={prizeForm.weight}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, weight: Number(e.target.value) })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-1">Plus le poids est élevé, plus le lot a de chances d&apos;être tiré</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock total (laisser vide = illimité)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Illimité"
+                  value={prizeForm.stockGlobal ?? ""}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, stockGlobal: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                onClick={createPrize}
+                disabled={actionLoading || !prizeForm.label}
+                className="btn-success w-full"
+              >
+                {actionLoading ? "Création..." : "Créer le lot"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {campaign.prizes.length === 0 && !showPrizeForm ? (
+          <p className="text-gray-500 text-sm">Aucun lot configuré. Cliquez sur &quot;+ Ajouter un lot&quot; pour commencer.</p>
         ) : (
           <div className="space-y-2">
             {campaign.prizes.map((p) => (
