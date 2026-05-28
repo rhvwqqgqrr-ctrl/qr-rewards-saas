@@ -40,8 +40,8 @@ export async function executeSpin(sessionToken: string, ip?: string): Promise<Sp
   if (ip) {
     const rateCheck = await checkRateLimit({
       key: `spin:ip:${ip}`,
-      limit: 5,
-      windowSeconds: 3600,
+      limit: 1,
+      windowSeconds: 86400,
     });
     if (!rateCheck.allowed) {
       throw new RateLimitError("Too many spins");
