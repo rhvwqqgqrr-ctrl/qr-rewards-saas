@@ -116,9 +116,9 @@ export default function PlayPage() {
   async function handleSpin() {
     if (!sessionToken) return;
     setPhase("spinning");
-    setSpinning(true);
 
     try {
+      // First: call the API to get the result BEFORE spinning the wheel
       const res = await fetch("/api/public/spin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,6 +134,12 @@ export default function PlayPage() {
       const prizes = campaignData?.campaign.prizes || [];
       const idx = prizes.findIndex((p) => p.id === result.prize.id);
       setWinningIndex(idx >= 0 ? idx : 0);
+
+      // Now start the wheel animation with the correct target
+      // Use setTimeout to ensure state is updated before spinning starts
+      setTimeout(() => {
+        setSpinning(true);
+      }, 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur du tirage");
       setSpinning(false);

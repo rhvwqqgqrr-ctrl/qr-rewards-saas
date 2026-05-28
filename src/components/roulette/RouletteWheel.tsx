@@ -50,7 +50,7 @@ export default function RouletteWheel({
 
       return () => clearTimeout(timer);
     }
-  }, [spinning]);
+  }, [spinning, winningIndex]);
 
   function drawWheel() {
     const canvas = canvasRef.current;
