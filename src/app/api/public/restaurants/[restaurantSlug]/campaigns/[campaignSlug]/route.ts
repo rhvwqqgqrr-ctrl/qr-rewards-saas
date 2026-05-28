@@ -44,7 +44,7 @@ export async function GET(
         startsAt: true,
         endsAt: true,
         prizes: {
-          where: { active: true, type: { not: "NO_PRIZE" } },
+          where: { active: true },
           select: {
             id: true,
             type: true,
