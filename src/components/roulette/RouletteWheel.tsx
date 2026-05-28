@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 
 interface Prize {
   id: string;
@@ -16,11 +16,6 @@ interface RouletteWheelProps {
   primaryColor?: string;
 }
 
-const COLORS = [
-  "#d6822e", "#3a1b0e", "#e9bc7e", "#6c381e",
-  "#f2d7b0", "#854322", "#fdf8f0", "#a65320",
-];
-
 export default function RouletteWheel({
   prizes,
   onSpinComplete,
@@ -28,101 +23,108 @@ export default function RouletteWheel({
   spinning,
   primaryColor = "#d6822e",
 }: RouletteWheelProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rotation, setRotation] = useState(0);
-
-  const segmentAngle = 360 / prizes.length;
+  const [phase, setPhase] = useState<"idle" | "shuffling" | "revealing">("idle");
+  const [displayIndex, setDisplayIndex] = useState(0);
 
   useEffect(() => {
-    drawWheel();
-  }, [prizes, rotation]);
-
-  useEffect(() => {
-    if (spinning) {
-      // Calculate target rotation: multiple full rotations + landing on winning segment
-      const targetSegmentCenter = 360 - (winningIndex * segmentAngle + segmentAngle / 2);
-      const totalRotation = 360 * 5 + targetSegmentCenter; // 5 full rotations
-      setRotation(totalRotation);
-
-      const timer = setTimeout(() => {
-        onSpinComplete();
-      }, 4200);
-
-      return () => clearTimeout(timer);
+    if (!spinning) {
+      setPhase("idle");
+      return;
     }
+
+    setPhase("shuffling");
+
+    // Rapidly cycle through prizes for 3 seconds
+    let count = 0;
+    const interval = setInterval(() => {
+      setDisplayIndex(count % prizes.length);
+      count++;
+    }, 100);
+
+    // After 2.5s, slow down then reveal
+    const slowDown = setTimeout(() => {
+      clearInterval(interval);
+      // Show the winning prize
+      setDisplayIndex(winningIndex);
+      setPhase("revealing");
+    }, 2500);
+
+    // Complete after 3.5s
+    const complete = setTimeout(() => {
+      onSpinComplete();
+    }, 3500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(slowDown);
+      clearTimeout(complete);
+    };
   }, [spinning, winningIndex]);
 
-  function drawWheel() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const size = canvas.width;
-    const center = size / 2;
-    const radius = center - 10;
-
-    ctx.clearRect(0, 0, size, size);
-
-    prizes.forEach((prize, i) => {
-      const startAngle = (i * segmentAngle * Math.PI) / 180;
-      const endAngle = ((i + 1) * segmentAngle * Math.PI) / 180;
-
-      // Draw segment
-      ctx.beginPath();
-      ctx.moveTo(center, center);
-      ctx.arc(center, center, radius, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fillStyle = COLORS[i % COLORS.length];
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Draw text
-      ctx.save();
-      ctx.translate(center, center);
-      ctx.rotate(startAngle + (endAngle - startAngle) / 2);
-      ctx.fillStyle = i % 2 === 0 ? "#ffffff" : "#fdf8f0";
-      ctx.font = "bold 11px Inter, sans-serif";
-      ctx.textAlign = "right";
-      ctx.fillText(prize.label.slice(0, 14), radius - 15, 4);
-      ctx.restore();
-    });
-
-    // Center circle
-    ctx.beginPath();
-    ctx.arc(center, center, 20, 0, 2 * Math.PI);
-    ctx.fillStyle = primaryColor;
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  }
+  const currentPrize = prizes[displayIndex] || prizes[0];
+  const isNoPrize = currentPrize?.type === "NO_PRIZE";
 
   return (
-    <div className="relative inline-block">
-      {/* Pointer */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-10">
-        <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[20px] border-l-transparent border-r-transparent border-t-brand-600 drop-shadow-md" />
-      </div>
-
-      {/* Wheel */}
+    <div className="flex flex-col items-center gap-6">
+      {/* Mystery box */}
       <div
-        className={spinning ? "animate-spin-wheel" : ""}
+        className="relative w-56 h-56 rounded-3xl flex items-center justify-center shadow-2xl transition-all duration-500"
         style={{
-          ["--spin-degrees" as string]: `${rotation}deg`,
-          transform: spinning ? undefined : `rotate(0deg)`,
-          transition: spinning ? undefined : "none",
+          background: phase === "revealing"
+            ? (isNoPrize ? "linear-gradient(135deg, #6b7280, #9ca3af)" : `linear-gradient(135deg, ${primaryColor}, #f59e0b)`)
+            : `linear-gradient(135deg, ${primaryColor}CC, ${primaryColor})`,
+          transform: phase === "shuffling" ? "scale(1.05)" : "scale(1)",
         }}
       >
-        <canvas
-          ref={canvasRef}
-          width={300}
-          height={300}
-          className="rounded-full shadow-xl"
-        />
+        {/* Decorative ribbon */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-full h-3 bg-white/30 absolute" />
+          <div className="h-full w-3 bg-white/30 absolute" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 text-center px-4">
+          {phase === "idle" && (
+            <div className="text-6xl animate-bounce">🎁</div>
+          )}
+          {phase === "shuffling" && (
+            <div className="text-white">
+              <div className="text-5xl mb-2 animate-pulse">✨</div>
+              <p className="text-lg font-bold animate-pulse">{currentPrize?.label}</p>
+            </div>
+          )}
+          {phase === "revealing" && (
+            <div className="animate-bounce">
+              <div className="text-5xl mb-2">{isNoPrize ? "😔" : "🎉"}</div>
+              <p className="text-white text-lg font-bold">{currentPrize?.label}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Prize list display */}
+      <div className="flex flex-wrap justify-center gap-2 max-w-xs">
+        {prizes.map((p, i) => (
+          <span
+            key={p.id}
+            className="text-xs px-2 py-1 rounded-full transition-all duration-200"
+            style={{
+              backgroundColor: phase === "shuffling" && i === displayIndex
+                ? primaryColor
+                : phase === "revealing" && i === winningIndex
+                ? (isNoPrize ? "#6b7280" : primaryColor)
+                : "#f3f4f6",
+              color: (phase === "shuffling" && i === displayIndex) ||
+                     (phase === "revealing" && i === winningIndex)
+                ? "#ffffff"
+                : "#6b7280",
+              fontWeight: phase === "revealing" && i === winningIndex ? "bold" : "normal",
+              transform: phase === "revealing" && i === winningIndex ? "scale(1.2)" : "scale(1)",
+            }}
+          >
+            {p.label}
+          </span>
+        ))}
       </div>
     </div>
   );
