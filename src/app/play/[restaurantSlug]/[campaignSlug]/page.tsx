@@ -51,6 +51,7 @@ export default function PlayPage() {
   const [error, setError] = useState<string>("");
   const [spinning, setSpinning] = useState(false);
   const [winningIndex, setWinningIndex] = useState(0);
+  const [reviewDone, setReviewDone] = useState(false);
 
   useEffect(() => {
     loadCampaign();
@@ -93,9 +94,13 @@ export default function PlayPage() {
         body: JSON.stringify({ sessionToken }),
       });
       window.open(campaignData.restaurant.googleReviewUrl, "_blank");
+      setReviewDone(true);
       setPhase("review");
     } catch {
       // Non-blocking
+      window.open(campaignData.restaurant.googleReviewUrl, "_blank");
+      setReviewDone(true);
+      setPhase("review");
     }
   }
 
@@ -174,6 +179,9 @@ export default function PlayPage() {
 
   // ─── Landing ───────────────────────────────────────────
   if (phase === "landing") {
+    const hasReviewUrl = !!restaurant?.googleReviewUrl;
+    const canPlay = !hasReviewUrl || reviewDone;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
@@ -195,14 +203,26 @@ export default function PlayPage() {
           )}
 
           <div className="w-full max-w-xs space-y-4">
-            <button onClick={handleSpin} className="btn-primary w-full text-lg py-4">
-              🎰 Tenter ma chance !
-            </button>
-
-            {restaurant?.googleReviewUrl && (
-              <button onClick={handleReviewClick} className="btn-secondary w-full">
-                ⭐ Laisser un avis Google
-              </button>
+            {!canPlay ? (
+              <>
+                <p className="text-center text-gray-700 text-sm mb-2">
+                  Laissez un avis Google pour débloquer votre tirage au sort !
+                </p>
+                <button onClick={handleReviewClick} className="btn-primary w-full text-lg py-4">
+                  ⭐ Laisser un avis Google
+                </button>
+              </>
+            ) : (
+              <>
+                {reviewDone && (
+                  <p className="text-center text-emerald-600 font-semibold text-sm mb-2">
+                    Merci pour votre avis ! Vous pouvez maintenant jouer.
+                  </p>
+                )}
+                <button onClick={handleSpin} className="btn-primary w-full text-lg py-4">
+                  🎰 Tenter ma chance !
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -218,12 +238,14 @@ export default function PlayPage() {
   if (phase === "review") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-gradient-to-br from-brand-50 to-white">
-        <div className="text-center">
-          <p className="text-lg text-gray-700 mb-6">
-            Merci pour votre avis ! 🙏
+        <div className="text-center max-w-xs">
+          <div className="text-5xl mb-4">🙏</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">Merci pour votre avis !</h2>
+          <p className="text-gray-600 mb-6">
+            Votre avis compte beaucoup pour nous. Vous avez maintenant accès au tirage au sort !
           </p>
-          <button onClick={handleReturnFromReview} className="btn-primary">
-            Revenir jouer
+          <button onClick={handleReturnFromReview} className="btn-primary w-full text-lg py-4">
+            🎰 Jouer maintenant !
           </button>
         </div>
       </div>
