@@ -52,6 +52,7 @@ export default function PlayPage() {
   const [spinning, setSpinning] = useState(false);
   const [winningIndex, setWinningIndex] = useState(0);
   const [reviewDone, setReviewDone] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     loadCampaign();
@@ -93,16 +94,30 @@ export default function PlayPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionToken }),
       });
-      window.open(campaignData.restaurant.googleReviewUrl, "_blank");
-      setReviewDone(true);
-      setPhase("review");
     } catch {
       // Non-blocking
-      window.open(campaignData.restaurant.googleReviewUrl, "_blank");
-      setReviewDone(true);
-      setPhase("review");
     }
+
+    window.open(campaignData.restaurant.googleReviewUrl, "_blank");
+    setReviewDone(true);
+    setCountdown(30);
+    setPhase("review");
   }
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   async function handleReturnFromReview() {
     if (!sessionToken) return;
@@ -234,19 +249,36 @@ export default function PlayPage() {
     );
   }
 
-  // ─── Review redirect ───────────────────────────────────
+  // ─── Review redirect with countdown ─────────────────────
   if (phase === "review") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-gradient-to-br from-brand-50 to-white">
         <div className="text-center max-w-xs">
           <div className="text-5xl mb-4">🙏</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-3">Merci pour votre avis !</h2>
-          <p className="text-gray-600 mb-6">
-            Votre avis compte beaucoup pour nous. Vous avez maintenant accès au tirage au sort !
-          </p>
-          <button onClick={handleReturnFromReview} className="btn-primary w-full text-lg py-4">
-            🎰 Jouer maintenant !
-          </button>
+          {countdown > 0 ? (
+            <>
+              <p className="text-gray-600 mb-4">
+                Votre avis compte beaucoup pour nous.
+              </p>
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6 mb-6">
+                <p className="text-gray-500 text-sm mb-2">Le jeu se débloque dans</p>
+                <p className="text-4xl font-bold" style={{ color: primaryColor }}>{countdown}s</p>
+              </div>
+              <p className="text-xs text-gray-400">
+                Profitez-en pour écrire votre avis Google !
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600 mb-6">
+                Votre avis compte beaucoup pour nous. Vous avez maintenant accès au tirage au sort !
+              </p>
+              <button onClick={handleReturnFromReview} className="btn-primary w-full text-lg py-4 animate-bounce">
+                🎰 Jouer maintenant !
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
