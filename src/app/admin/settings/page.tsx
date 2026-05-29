@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadRestaurant();
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setSaving(true);
     setSuccess(false);
+    setError("");
     try {
       await adminFetch("/api/admin/restaurant", {
         method: "PATCH",
@@ -42,8 +44,8 @@ export default function SettingsPage() {
       });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch {
-      /* handled */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
     }
@@ -85,6 +87,7 @@ export default function SettingsPage() {
           </div>
         </div>
         {success && <p className="text-emerald-600 text-sm font-medium">Enregistré avec succès !</p>}
+        {error && <p className="text-red-600 text-sm font-medium">{error}</p>}
         <button type="submit" className="btn-primary w-full" disabled={saving}>
           {saving ? <LoadingSpinner size="sm" /> : "Enregistrer"}
         </button>

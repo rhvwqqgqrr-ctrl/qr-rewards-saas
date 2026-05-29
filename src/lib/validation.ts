@@ -87,8 +87,8 @@ export const createRestaurantSchema = z.object({
   postalCode: z.string().optional(),
   city: z.string().optional(),
   phone: z.string().optional(),
-  websiteUrl: z.string().url().optional().nullable(),
-  googleReviewUrl: z.string().url().optional().nullable(),
+  websiteUrl: z.string().optional().nullable(),
+  googleReviewUrl: z.string().optional().nullable(),
   timezone: z.string().optional(),
 });
 
